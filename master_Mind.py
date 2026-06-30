@@ -6,10 +6,68 @@ import random
 
 print("MasterMind")
 
-COLORS = ["Red", "Blue", "Yellow", "Purple", "Green"]
-CODE_LENGTH = 4
-MAX_ATTEMPTS = 10
-MAX_HINTS = 2
+# Lijst met kleuren per moeilijkheidsgraad
+DIFFICULTY_LEVELS = {
+    "1": {
+        "naam":     "Makkelijk",
+        "lengte":   3,
+        "pogingen": 12,
+        "kleuren":  ["Red", "Blue", "Yellow", "Purple", "Green"],
+    },
+    "2": {
+        "naam":     "Normaal",
+        "lengte":   4,
+        "pogingen": 10,
+        "kleuren":  ["Red", "Blue", "Yellow", "Purple", "Green"],
+    },
+    "3": {
+        "naam":     "Moeilijk",
+        "lengte":   5,
+        "pogingen": 8,
+        "kleuren":  ["Red", "Blue", "Yellow", "Purple", "Green", "Orange"],
+    },
+    "4": {
+        "naam":     "Expert",
+        "lengte":   6,
+        "pogingen": 6,
+        "kleuren":  ["Red", "Blue", "Yellow", "Purple", "Green", "Orange", "White", "Pink"],
+    },
+}
+
+
+# Laad het admin wachtwoord uit een tekstbestand
+def load_Password(filename="password.txt"):
+    with open(filename) as f:
+        return f.read().strip()
+
+
+# Laad het admin wachtwoord bij het starten van het programma
+ADMIN_PASSWORD = load_Password()
+
+
+def choose_Difficulty():
+    print("\n=== Kies een moeilijkheidsgraad ===")
+    for key, level in DIFFICULTY_LEVELS.items():
+        kleuren = ", ".join(level["kleuren"])
+        print(
+            f"  [{key}] {level['naam']}"
+            f" — codelengte: {level['lengte']}"
+            f", pogingen: {level['pogingen']}"
+            f", kleuren: {kleuren}"
+        )
+
+    choice = ""
+    while choice not in DIFFICULTY_LEVELS:
+        choice = input(f"Jouw keuze (1-{len(DIFFICULTY_LEVELS)}): ").strip()
+        if choice not in DIFFICULTY_LEVELS:
+            print(f"Ongeldige keuze. Voer 1 t/m {len(DIFFICULTY_LEVELS)} in.")
+
+    selected = DIFFICULTY_LEVELS[choice]
+    print(
+        f"\nGekozen: {selected['naam']} "
+        f"(lengte: {selected['lengte']}, pogingen: {selected['pogingen']})\n"
+    )
+    return selected
 
 
 def generate_Code(length, colors):
@@ -35,77 +93,58 @@ def get_Feedback(secret, guess):
     return black_Pegs, white_Pegs
 
 
-def show_Hints(secret_Code, revealed_Positions):
-    hint = []
-
-    for position in range(len(secret_Code)):
-        if position in revealed_Positions:
-            hint.append(secret_Code[position])
-        else:
-            hint.append("_")
-
-    print("Hint:", " ".join(hint))
-
-
-def give_Hint(secret_Code, revealed_Positions, hints_Used):
-    if hints_Used >= MAX_HINTS:
-        print("Je hebt alle hints al gebruikt.")
-        return hints_Used
-
-    hidden_Positions = []
-
-    for position in range(len(secret_Code)):
-        if position not in revealed_Positions:
-            hidden_Positions.append(position)
-
-    position = random.choice(hidden_Positions)
-    revealed_Positions[position] = secret_Code[position]
-    hints_Used += 1
-
-    print(f"Hint {hints_Used}/{MAX_HINTS}: positie {position + 1} is bekend.")
-    show_Hints(secret_Code, revealed_Positions)
-
-    return hints_Used
+# Controleer of de speler admin is
+def admin_Check():
+    password = input("Enter admin password: ").strip()
+    if password == ADMIN_PASSWORD:
+        print("Access granted.")
+        return True
+    else:
+        print("Wrong password. Access denied.")
+        return False
 
 
-def play_Mastermind():
+# Toont de geheime code alleen als de speler admin is
+def show_Secret(mystery, is_Admin):
+    if is_Admin:
+        print(f"Secret code: {mystery}")
+    else:
+        print("Access denied. Admin only.")
+
+
+def play_Mastermind(is_Admin):
+    # Moeilijkheidsgraad kiezen vóór het spel start
+    settings = choose_Difficulty()
+
+    code_Length = settings["lengte"]
+    max_Pogingen = settings["pogingen"]
+    colors = settings["kleuren"]
+
     print("Welcome to Mastermind!")
-    print(f"Guess the {CODE_LENGTH} colors. Choose from: {', '.join(COLORS)}")
-    print(f"You have {MAX_ATTEMPTS} attempts.")
-    print(f"Typ 'hint' voor een hint. Je hebt maximaal {MAX_HINTS} hints.")
+    print(f"Guess the {code_Length} colors. Choose from: {', '.join(colors)}")
+    print(f"You have {max_Pogingen} attempts.")
 
-    secret_Code = generate_Code(CODE_LENGTH, COLORS)
-    revealed_Positions = {}
-    hints_Used = 0
+    secret_Code = generate_Code(code_Length, colors)
 
-    for attempt in range(1, MAX_ATTEMPTS + 1):
+    for attempt in range(1, max_Pogingen + 1):
         guess = []
         valid_Guess = False
-
         while not valid_Guess:
             raw_input = input(
-                f"Attempt {attempt}/{MAX_ATTEMPTS} ({', '.join(COLORS)}): "
+                f"Attempt {attempt}/{max_Pogingen} ({', '.join(colors)}): "
             ).strip()
 
-            if raw_input.lower() == "hint":
-                hints_Used = give_Hint(
-                    secret_Code,
-                    revealed_Positions,
-                    hints_Used
-                )
+            if raw_input.lower() == "cheat":
+                show_Secret(secret_Code, is_Admin)
                 continue
 
             guess = [color.capitalize() for color in raw_input.split()]
 
-            valid_Guess = (
-                len(guess) == CODE_LENGTH
-                and all(c in COLORS for c in guess)
-            )
-
+            valid_Guess = len(guess) == code_Length and all(c in colors for c in guess)
             if not valid_Guess:
                 print(
-                    f"Invalid input. Enter exactly {CODE_LENGTH} colors from: "
-                    f"{', '.join(COLORS)}"
+                    f"Invalid input. Enter exactly {code_Length} colors from: "
+                    f"{', '.join(colors)}"
                 )
 
         black, white = get_Feedback(secret_Code, guess)
@@ -114,7 +153,7 @@ def play_Mastermind():
             f"White pegs (wrong position): {white}"
         )
 
-        if black == CODE_LENGTH:
+        if black == code_Length:
             print(
                 f"Congratulations! You guessed the code: "
                 f"{' '.join(secret_Code)}"
@@ -128,7 +167,10 @@ def play_Mastermind():
 
 
 if __name__ == "__main__":
-    again = "Y"
-    while again == "Y":
-        play_Mastermind()
+    print("=== Admin check ===")
+    is_Admin = admin_Check()
+
+    again = 'Y'
+    while again == 'Y':
+        play_Mastermind(is_Admin)
         again = input("Play again (Y/N) ?").upper()
